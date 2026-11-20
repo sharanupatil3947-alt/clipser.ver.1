@@ -1,21 +1,35 @@
+import hashlib
+import os
+import secrets
 from datetime import datetime, timedelta
 from typing import Optional, Any
 from jose import jwt, JWTError
-from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import get_db
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login", auto_error=False)
 
+def hash_password_pbkdf2(password: str) -> str:
+    salt = secrets.token_hex(16)
+    key = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt.encode("utf-8"), 100000)
+    return f"{salt}${key.hex()}"
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    if not hashed_password or "$" not in hashed_password:
+        return False
+    try:
+        salt, key_hex = hashed_password.split("$", 1)
+        expected_key = hashlib.pbkdf2_hmac("sha256", plain_password.encode("utf-8"), salt.encode("utf-8"), 100000)
+        return secrets.compare_digest(key_hex, expected_key.hex())
+    except Exception:
+        return False
 
 def get_password_hash(password: str) -> str:
-    return pwd_context.hash(password)
+    return hash_password_pbkdf2(password)
+
 
 def create_access_token(subject: Any, expires_delta: Optional[timedelta] = None) -> str:
     if expires_delta:
