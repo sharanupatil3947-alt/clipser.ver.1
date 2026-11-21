@@ -117,7 +117,7 @@ export default function HomePage() {
                 </div>
                 <div className="absolute top-12 inset-x-4 text-center">
                   <h4 className="font-extrabold text-sm uppercase text-white leading-tight drop-shadow-md">
-                    {item.hook.split("\\n").map((line, lidx) => (
+                    {(item.hook || "").split(/\r?\n|\\n/).map((line, lidx) => (
                       <span key={lidx} className={lidx === 1 ? "text-cyan-400 block" : "block"}>{line}</span>
                     ))}
                   </h4>

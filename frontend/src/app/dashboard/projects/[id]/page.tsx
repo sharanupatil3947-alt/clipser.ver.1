@@ -2,10 +2,70 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ChevronLeft, ArrowRight, Sparkles, Filter, SlidersHorizontal } from "lucide-react";
+import { ChevronLeft, ArrowRight, Sparkles, AlertCircle } from "lucide-react";
 import { ClipCard, ClipProps } from "@/components/ClipCard";
 import { ClipEditorModal } from "@/components/ClipEditorModal";
 import { API_BASE_URL } from "@/lib/api";
+
+const DEMO_CLIPS: ClipProps[] = [
+  {
+    id: "clip_secret_01",
+    title: "THE COMPOUNDING CAREER SECRET",
+    hook_sentence: "THE COMPOUNDING\nCAREER SECRET",
+    virality_score: 94,
+    virality_explanation: "Curiosity hook with immediate retention lock. Addresses high-ambition audience psychology.",
+    duration: 35.0,
+    video_url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+    thumbnail_url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80",
+  },
+  {
+    id: "clip_advice_02",
+    title: "WHY YOU SHOULD IGNORE ADVICE",
+    hook_sentence: "WHY YOU SHOULD\nIGNORE ADVICE",
+    virality_score: 92,
+    virality_explanation: "Provocative contrarian statement. Ignites comment section debates and shares.",
+    duration: 41.0,
+    video_url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+    thumbnail_url: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80",
+  },
+  {
+    id: "clip_chatgpt_03",
+    title: "WHY NOBODY BELIEVED CHATGPT",
+    hook_sentence: "WHY NOBODY BELIEVED\nCHATGPT",
+    virality_score: 90,
+    virality_explanation: "Dramatic underdog struggle paired with tech giant founder narrative.",
+    duration: 41.0,
+    video_url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
+    thumbnail_url: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=600&q=80",
+  },
+  {
+    id: "clip_super_04",
+    title: "THE FUTURE OF SUPERINTELLIGENCE",
+    hook_sentence: "WHAT HAPPENS IN 2028?",
+    virality_score: 88,
+    duration: 38.0,
+    video_url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+    thumbnail_url: "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=600&q=80",
+  },
+  {
+    id: "clip_growth_05",
+    title: "HOW TO SCALE FROM 0 TO 100M",
+    hook_sentence: "THE 3 PHASES OF\nHYPERGROWTH",
+    virality_score: 85,
+    duration: 45.0,
+    video_url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+    thumbnail_url: "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&w=600&q=80",
+  },
+  {
+    id: "clip_habit_06",
+    title: "DAILY ROUTINE OF TOP 1%",
+    hook_sentence: "THE NON-NEGOTIABLE\nMORNING RULE",
+    virality_score: 84,
+    duration: 32.0,
+    video_url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
+    thumbnail_url: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=600&q=80",
+  }
+];
 
 export default function ProjectClipsPage() {
   const params = useParams();
@@ -14,99 +74,67 @@ export default function ProjectClipsPage() {
   const [project, setProject] = useState<any>({
     title: "Sam Altman On AI Revolution, Superintelligence & Future Of Humanity | FO583 Raj Shamani",
     duration_formatted: "68:01",
-    clips_count: 17,
-    top_score: 94,
-    thumbnail_url: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=600&q=80"
+    thumbnail_url: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=600&q=80",
   });
 
-  const [clips, setClips] = useState<ClipProps[]>([
-    {
-      id: "clip_secret_01",
-      title: "THE COMPOUNDING CAREER SECRET",
-      hook_sentence: "THE COMPOUNDING\nCAREER SECRET",
-      virality_score: 94,
-      virality_explanation: "Curiosity hook with immediate retention lock. Addresses high-ambition audience psychology.",
-      duration: 35.0,
-      video_url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
-      thumbnail_url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80",
-    },
-    {
-      id: "clip_advice_02",
-      title: "WHY YOU SHOULD IGNORE ADVICE",
-      hook_sentence: "WHY YOU SHOULD\nIGNORE ADVICE",
-      virality_score: 92,
-      virality_explanation: "Provocative contrarian statement. Ignites comment section debates and shares.",
-      duration: 41.0,
-      video_url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
-      thumbnail_url: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80",
-    },
-    {
-      id: "clip_chatgpt_03",
-      title: "WHY NOBODY BELIEVED CHATGPT",
-      hook_sentence: "WHY NOBODY BELIEVED\nCHATGPT",
-      virality_score: 90,
-      virality_explanation: "Dramatic underdog struggle paired with tech giant founder narrative.",
-      duration: 41.0,
-      video_url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
-      thumbnail_url: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=600&q=80",
-    },
-    {
-      id: "clip_super_04",
-      title: "THE FUTURE OF SUPERINTELLIGENCE",
-      hook_sentence: "WHAT HAPPENS IN 2028?",
-      virality_score: 88,
-      duration: 38.0,
-      video_url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
-      thumbnail_url: "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=600&q=80",
-    },
-    {
-      id: "clip_growth_05",
-      title: "HOW TO SCALE FROM 0 TO 100M",
-      hook_sentence: "THE 3 PHASES OF\nHYPERGROWTH",
-      virality_score: 85,
-      duration: 45.0,
-      video_url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
-      thumbnail_url: "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&w=600&q=80",
-    },
-    {
-      id: "clip_habit_06",
-      title: "DAILY ROUTINE OF TOP 1%",
-      hook_sentence: "THE NON-NEGOTIABLE\nMORNING RULE",
-      virality_score: 84,
-      duration: 32.0,
-      video_url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
-      thumbnail_url: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=600&q=80",
-    }
-  ]);
-
+  const [clips, setClips] = useState<ClipProps[]>(DEMO_CLIPS);
   const [selectedClip, setSelectedClip] = useState<ClipProps | null>(null);
+  const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
     fetch(`${API_BASE_URL}/projects/${projectId}`)
-      .then((r) => r.json())
+      .then((r) => {
+        if (r.status === 404) {
+          setNotFound(true);
+          return null;
+        }
+        return r.json();
+      })
       .then((data) => {
+        if (!data) return;
+        if (data.detail) {
+          setNotFound(true);
+          return;
+        }
         if (data.title) setProject(data);
         if (data.clips && data.clips.length > 0) setClips(data.clips);
       })
-      .catch((e) => console.log("Using seeded replica clips"));
+      .catch(() => {
+        // Keep fallback demo data
+      });
   }, [projectId]);
+
+  // Dynamic computed values
+  const clipsCount = clips.length;
+  const topScore = clips.length > 0 ? Math.max(...clips.map(c => c.virality_score || 0)) : 94;
 
   return (
     <div className="space-y-8 pb-16">
-      {/* Back to all demos navigation */}
+      {/* Back navigation */}
       <div>
         <Link
           href="/dashboard"
           className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-400 hover:text-white transition-colors"
         >
           <ChevronLeft className="w-4 h-4" />
-          <span>Back to all demos</span>
+          <span>Back to all videos</span>
         </Link>
       </div>
 
-      {/* Main Video Hero Header - Exactly as seen in ScaleReach */}
+      {/* Not found notice */}
+      {notFound && (
+        <div className="flex items-center gap-3 p-4 rounded-xl bg-yellow-500/5 border border-yellow-500/20 text-yellow-400">
+          <AlertCircle className="w-5 h-5 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold">Project not found in database</p>
+            <p className="text-xs text-yellow-500/80 mt-0.5">Showing demo clips. The project &quot;{projectId}&quot; may still be processing or was not saved.</p>
+          </div>
+        </div>
+      )}
+
+      {/* Main Video Hero Header */}
       <div className="flex flex-col lg:flex-row items-start lg:items-center gap-6 lg:gap-8 bg-[#0f0f15] border border-gray-800/80 rounded-2xl p-6 sm:p-8">
-        {/* Source Video Thumbnail with 4M+ Views Tag */}
+        {/* Source Video Thumbnail */}
         <div className="relative aspect-video w-full max-w-sm rounded-xl overflow-hidden bg-black shrink-0 shadow-2xl">
           <img
             src={project.thumbnail_url || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=600&q=80"}
@@ -118,14 +146,14 @@ export default function ProjectClipsPage() {
           </div>
         </div>
 
-        {/* Video Title & Call to Action */}
+        {/* Video Title & CTA */}
         <div className="space-y-4 flex-1">
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white leading-tight">
             {project.title}
           </h1>
 
           <p className="text-xs sm:text-sm text-gray-400 font-medium">
-            17 clips from a {project.duration_formatted || "68:01"} video · top score <span className="text-white font-bold">94</span>
+            {clipsCount} clips from a {project.duration_formatted || "68:01"} video · top score <span className="text-white font-bold">{topScore}</span>
           </p>
 
           <div>
@@ -143,7 +171,7 @@ export default function ProjectClipsPage() {
       {/* Grid of Generated Viral Clips */}
       <div>
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-bold text-white">Generated Viral Shorts ({clips.length})</h2>
+          <h2 className="text-lg font-bold text-white">Generated Viral Shorts ({clipsCount})</h2>
           <div className="flex items-center gap-2 text-xs text-gray-400">
             <span className="font-semibold text-white">Sorted by:</span>
             <span>Virality Score (High to Low)</span>
@@ -151,7 +179,9 @@ export default function ProjectClipsPage() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-6">
-          {clips.map((c) => (
+          {clips
+            .sort((a, b) => (b.virality_score || 0) - (a.virality_score || 0))
+            .map((c) => (
             <ClipCard
               key={c.id}
               {...c}
@@ -164,7 +194,7 @@ export default function ProjectClipsPage() {
         </div>
       </div>
 
-      {/* Detailed Clip Editor / Aspect Ratio / Subtitles Modal */}
+      {/* Clip Editor Modal */}
       <ClipEditorModal
         clip={selectedClip}
         onClose={() => setSelectedClip(null)}

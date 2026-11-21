@@ -1,7 +1,8 @@
 "use client";
 import React, { useState } from "react";
-import { X, Play, Download, Calendar, Smartphone, Square, Monitor, Sparkles } from "lucide-react";
+import { X, Play, Download, Calendar, Smartphone, Square, Monitor, Sparkles, Loader2 } from "lucide-react";
 import { ClipProps } from "./ClipCard";
+import { API_BASE_URL } from "@/lib/api";
 
 interface ClipEditorModalProps {
   clip: ClipProps | null;
@@ -15,11 +16,57 @@ export const ClipEditorModal: React.FC<ClipEditorModalProps> = ({ clip, onClose,
   const [aspect, setAspect] = useState(clip.aspect_ratio || "9:16");
   const [hook, setHook] = useState(clip.hook_sentence);
   const [captionStyle, setCaptionStyle] = useState("karaoke_cyan_glow");
+  const [exporting, setExporting] = useState(false);
+  const [exportRes, setExportRes] = useState<"1080p" | "720p" | "480p">("1080p");
+
+  const handleExport = async () => {
+    // First save the edited data
+    if (onSave) onSave({ aspect, hook, captionStyle });
+
+    setExporting(true);
+    try {
+      // Try to export via the backend API
+      const token = localStorage.getItem("clipser_token");
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch(`${API_BASE_URL}/export/${clip.id}?resolution=${exportRes}&format=mp4`, {
+        headers,
+      });
+
+      if (res.ok) {
+        // Download the file
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${clip.title.replace(/[^a-zA-Z0-9]/g, "_")}_${exportRes}.mp4`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } else {
+        // Fallback: open the demo video directly
+        if (clip.video_url) {
+          window.open(clip.video_url, "_blank");
+        } else {
+          alert("Export not available — clip file not found on disk. This clip uses sample video.");
+        }
+      }
+    } catch (err) {
+      // Fallback: open the video URL
+      if (clip.video_url) {
+        window.open(clip.video_url, "_blank");
+      }
+    }
+    setExporting(false);
+    onClose();
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in">
       <div className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl bg-[#0f0f15] border border-gray-800 shadow-2xl p-6 flex flex-col md:flex-row gap-6">
-        <button onClick={onClose} className="absolute top-4 right-4 p-1.5 rounded-lg text-gray-400 hover:text-white bg-black/40">
+        <button onClick={onClose} className="absolute top-4 right-4 p-1.5 rounded-lg text-gray-400 hover:text-white bg-black/40 z-10">
           <X className="w-5 h-5" />
         </button>
 
@@ -35,7 +82,7 @@ export const ClipEditorModal: React.FC<ClipEditorModalProps> = ({ clip, onClose,
             {/* Hook preview overlay */}
             <div className="absolute top-12 inset-x-3 text-center">
               <h4 className="font-extrabold text-sm uppercase text-white leading-tight drop-shadow-lg">
-                {hook.split("\\n").map((line, i) => (
+                {(hook || "").split(/\r?\n|\\n/).map((line, i) => (
                   <span key={i} className={i % 2 === 1 ? "text-cyan-400 block" : "block"}>{line}</span>
                 ))}
               </h4>
@@ -110,20 +157,45 @@ export const ClipEditorModal: React.FC<ClipEditorModalProps> = ({ clip, onClose,
             </div>
           </div>
 
+          {/* Export Resolution */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-300 mb-1.5">Export Resolution</label>
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              {(["1080p", "720p", "480p"] as const).map((res) => (
+                <button
+                  key={res}
+                  onClick={() => setExportRes(res)}
+                  className={`p-2 rounded-lg border text-center transition-all ${
+                    exportRes === res ? "bg-blue-500/10 border-blue-400 text-blue-300" : "bg-[#08080a] border-gray-800 text-gray-400"
+                  }`}
+                >
+                  {res} {res === "1080p" && "HD"}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Bottom Actions */}
           <div className="pt-4 border-t border-gray-800 flex items-center justify-end gap-3">
             <button onClick={onClose} className="px-4 py-2 rounded-xl text-xs font-semibold text-gray-400 hover:text-white">
               Cancel
             </button>
             <button
-              onClick={() => {
-                if (onSave) onSave({ aspect, hook, captionStyle });
-                onClose();
-              }}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-lg shadow-blue-600/20"
+              onClick={handleExport}
+              disabled={exporting}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold text-xs shadow-lg shadow-blue-600/20 transition-all"
             >
-              <span>Export HD Clip</span>
-              <Download className="w-3.5 h-3.5" />
+              {exporting ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Exporting...</span>
+                </>
+              ) : (
+                <>
+                  <span>Export {exportRes} Clip</span>
+                  <Download className="w-3.5 h-3.5" />
+                </>
+              )}
             </button>
           </div>
         </div>

@@ -33,7 +33,8 @@ export default function DashboardPage() {
 
   const firstName = user?.name ? user.name.split(" ")[0] : "Sharanu";
 
-  const [projects, setProjects] = useState<any[]>([
+  // Hardcoded fallback projects — only shown when backend API fails entirely
+  const FALLBACK_PROJECTS = [
     {
       id: "QILfShrb7StRrlPEQqpoy",
       title: "Sam Altman On AI Revolution, Superintelligence & Future Of Humanity | FO583 Raj Shamani",
@@ -45,53 +46,25 @@ export default function DashboardPage() {
       views_tag: "4M+ VIEWS",
       thumbnail_url: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=600&q=80",
     },
-    {
-      id: "proj_lex_fridman_ai",
-      title: "Yann LeCun: Meta AI, Open Source, and Autonomous Machine Intelligence | Lex Fridman Podcast",
-      duration_formatted: "142:15",
-      status: "ready",
-      clips_count: 14,
-      top_score: 92,
-      current_step: "14 clips generated · top score 92",
-      views_tag: "1.8M+ VIEWS",
-      thumbnail_url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80",
-    },
-    {
-      id: "proj_huberman_focus",
-      title: "How to Focus & Maintain Peak Mental Energy All Day | Dr. Andrew Huberman",
-      duration_formatted: "84:30",
-      status: "ready",
-      clips_count: 11,
-      top_score: 91,
-      current_step: "11 clips generated · top score 91",
-      views_tag: "3.2M+ VIEWS",
-      thumbnail_url: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80",
-    },
-    {
-      id: "proj_jensen_huang_gpu",
-      title: "NVIDIA CEO Jensen Huang: The Next Industrial Revolution & AI Supercomputers",
-      duration_formatted: "52:10",
-      status: "ready",
-      clips_count: 9,
-      top_score: 89,
-      current_step: "9 clips generated · top score 89",
-      views_tag: "2.1M+ VIEWS",
-      thumbnail_url: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=600&q=80",
-    },
-  ]);
+  ];
+
+  const [projects, setProjects] = useState<any[]>([]);
 
   useEffect(() => {
     fetch(`${API_BASE_URL}/projects`)
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data) && data.length > 0) {
-          // Merge with default rich list
-          const existingIds = new Set(data.map((p: any) => p.id));
-          const uniqueDefaults = projects.filter((p) => !existingIds.has(p.id));
-          setProjects([...data, ...uniqueDefaults]);
+          setProjects(data);
+        } else {
+          // API returned empty — use fallback
+          setProjects(FALLBACK_PROJECTS);
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        // API unreachable — use fallback
+        setProjects(FALLBACK_PROJECTS);
+      });
   }, []);
 
   const handleProcessUrl = async (e: React.FormEvent) => {
@@ -268,57 +241,64 @@ export default function DashboardPage() {
         {/* Video Items List/Grid */}
         {viewMode === "list" ? (
           <div className="space-y-3">
-            {filteredProjects.map((p) => (
-              <Link
-                key={p.id}
-                href={`/dashboard/projects/${p.id}`}
-                className="group flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl bg-[#0c0c12] border border-[#1b1b24] hover:border-blue-500/40 transition-all hover:shadow-xl hover:shadow-blue-500/5"
-              >
-                <div className="flex items-center gap-4 min-w-0">
-                  {/* Thumbnail with duration badge */}
-                  <div className="relative aspect-video w-32 sm:w-40 rounded-lg overflow-hidden bg-black shrink-0 shadow-md">
-                    <img
-                      src={p.thumbnail_url || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=600&q=80"}
-                      alt={p.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                    {p.views_tag && (
-                      <span className="absolute bottom-1 left-1 px-1.5 py-0.2 rounded bg-black/80 text-[9px] font-extrabold text-white">
-                        {p.views_tag}
-                      </span>
-                    )}
-                    <span className="absolute bottom-1 right-1 px-1.5 py-0.2 rounded bg-black/80 text-[10px] font-bold text-gray-300">
-                      {p.duration_formatted}
-                    </span>
-                  </div>
+            {filteredProjects.map((p) => {
+              const clipCount = (p.clips && p.clips.length > 0) ? p.clips.length : (p.clips_count || 17);
+              const topScore = (p.clips && p.clips.length > 0)
+                ? Math.max(...p.clips.map((c: any) => c.virality_score || 0))
+                : (p.top_score || 94);
 
-                  {/* Title and stats */}
-                  <div className="min-w-0">
-                    <h3 className="font-bold text-sm text-white truncate group-hover:text-blue-400 transition-colors">
-                      {p.title}
-                    </h3>
-                    <div className="flex items-center gap-2 text-xs text-gray-400 mt-1">
-                      <span className="inline-flex items-center gap-1 font-semibold text-emerald-400">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                        {p.clips_count || 17} clips
+              return (
+                <Link
+                  key={p.id}
+                  href={`/dashboard/projects/${p.id}`}
+                  className="group flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl bg-[#0c0c12] border border-[#1b1b24] hover:border-blue-500/40 transition-all hover:shadow-xl hover:shadow-blue-500/5"
+                >
+                  <div className="flex items-center gap-4 min-w-0">
+                    {/* Thumbnail with duration badge */}
+                    <div className="relative aspect-video w-32 sm:w-40 rounded-lg overflow-hidden bg-black shrink-0 shadow-md">
+                      <img
+                        src={p.thumbnail_url || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=600&q=80"}
+                        alt={p.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                      {p.views_tag && (
+                        <span className="absolute bottom-1 left-1 px-1.5 py-0.2 rounded bg-black/80 text-[9px] font-extrabold text-white">
+                          {p.views_tag}
+                        </span>
+                      )}
+                      <span className="absolute bottom-1 right-1 px-1.5 py-0.2 rounded bg-black/80 text-[10px] font-bold text-gray-300">
+                        {p.duration_formatted}
                       </span>
-                      <span>·</span>
-                      <span>Top score: <strong className="text-white">{p.top_score || 94}</strong></span>
-                      <span>·</span>
-                      <span className="text-gray-500">Ready to export</span>
+                    </div>
+
+                    {/* Title and stats */}
+                    <div className="min-w-0">
+                      <h3 className="font-bold text-sm text-white truncate group-hover:text-blue-400 transition-colors">
+                        {p.title}
+                      </h3>
+                      <div className="flex items-center gap-2 text-xs text-gray-400 mt-1">
+                        <span className="inline-flex items-center gap-1 font-semibold text-emerald-400">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                          {clipCount} clips
+                        </span>
+                        <span>·</span>
+                        <span>Top score: <strong className="text-white">{topScore}</strong></span>
+                        <span>·</span>
+                        <span className="text-gray-500">Ready to export</span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Right button */}
-                <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-                  <div className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-blue-600/10 hover:bg-blue-600 text-blue-400 hover:text-white border border-blue-500/20 text-xs font-semibold transition-all">
-                    <Scissors className="w-3.5 h-3.5" />
-                    <span>View {p.clips_count || 17} Clips</span>
+                  {/* Right button */}
+                  <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                    <div className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-blue-600/10 hover:bg-blue-600 text-blue-400 hover:text-white border border-blue-500/20 text-xs font-semibold transition-all">
+                      <Scissors className="w-3.5 h-3.5" />
+                      <span>View {clipCount} Clips</span>
+                    </div>
                   </div>
-                </div>
-              </Link>
-            ))}
+                </Link>
+              );
+            })}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">

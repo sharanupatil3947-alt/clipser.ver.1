@@ -42,8 +42,9 @@ def create_access_token(subject: Any, expires_delta: Optional[timedelta] = None)
 
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     from app.models.user import User
-    if not token:
-        # Default dev mock user for instant zero-friction trial if not logged in
+
+    # Helper to get or create the demo user
+    def _get_demo_user():
         dev_user = db.query(User).filter(User.email == "demo@clipser.ai").first()
         if not dev_user:
             dev_user = User(
@@ -57,16 +58,24 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
             db.commit()
             db.refresh(dev_user)
         return dev_user
-        
+
+    if not token:
+        return _get_demo_user()
+
+    # Accept known demo/fallback tokens without JWT decode
+    if token.startswith("demo_") or token.startswith("jwt_token_") or token.startswith("google_jwt_token_"):
+        return _get_demo_user()
+
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         user_id: str = payload.get("sub")
         if user_id is None:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+            return _get_demo_user()
     except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+        # Instead of 401, fall back to demo user for seamless local dev experience
+        return _get_demo_user()
         
     user = db.query(User).filter(User.id == int(user_id)).first()
     if user is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        return _get_demo_user()
     return user

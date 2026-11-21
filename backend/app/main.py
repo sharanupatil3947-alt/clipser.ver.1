@@ -98,6 +98,22 @@ def seed_initial_demo_project():
             db.commit()
             db.refresh(demo_user)
 
+        # Seed the pre-filled login user (matches frontend login form defaults)
+        prefilled_user = db.query(User).filter(User.email == "sharanupatil3947@gmail.com").first()
+        if not prefilled_user:
+            prefilled_user = User(
+                email="sharanupatil3947@gmail.com",
+                name="Sharana Patil",
+                hashed_password=get_password_hash("clipser2026"),
+                is_pro=True,
+                plan_tier="pro_unlimited",
+                source_minutes_remaining=999999,
+                auth_provider="email"
+            )
+            db.add(prefilled_user)
+            db.commit()
+            logger.info("Pre-filled login user seeded: sharanupatil3947@gmail.com")
+
         demo_proj = db.query(Project).filter(Project.id == "QILfShrb7StRrlPEQqpoy").first()
         if not demo_proj:
             demo_proj = Project(

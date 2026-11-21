@@ -43,7 +43,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, videoCount 
   ];
 
   const libraryItems = [
-    { href: "/dashboard/projects/QILfShrb7StRrlPEQqpoy", label: "All Clips", icon: Scissors, active: pathname.includes("/projects") },
+    { href: "/dashboard", label: "All Clips", icon: Scissors, active: pathname.includes("/projects") },
     { href: "/dashboard/schedule", label: "Scheduler", icon: Calendar, active: pathname === "/dashboard/schedule" },
     { href: "/dashboard/analytics", label: "Analytics", icon: TrendingUp, active: pathname === "/dashboard/analytics" },
     { href: "/dashboard/brand", label: "Brand Kit", icon: Palette, active: pathname === "/dashboard/brand" },

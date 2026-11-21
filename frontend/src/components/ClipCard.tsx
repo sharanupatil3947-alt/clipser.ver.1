@@ -80,7 +80,7 @@ export const ClipCard: React.FC<ClipProps> = ({
         {/* Center Hook Text Overlay - The Signature Viral Subtitle Look */}
         <div className="absolute top-12 inset-x-4 z-10 text-center">
           <h3 className="font-extrabold text-sm md:text-base leading-snug tracking-wider text-white uppercase drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
-            {hook_sentence.split("\n").map((line, i) => (
+            {(hook_sentence || "").split(/\r?\n|\\n/).map((line, i) => (
               <span key={i} className={i % 2 === 1 ? "text-cyan-400 block" : "block"}>
                 {line}
               </span>

@@ -25,8 +25,11 @@ class TokenResponse(BaseModel):
 class UserResponse(BaseModel):
     id: int
     email: str
-    name: str
-    avatar_url: str
-    is_pro: bool
-    plan_tier: str
-    source_minutes_remaining: int
+    name: Optional[str] = ""
+    avatar_url: Optional[str] = ""
+    is_pro: Optional[bool] = True
+    plan_tier: Optional[str] = "pro_unlimited"
+    source_minutes_remaining: Optional[int] = 999999
+
+    class Config:
+        from_attributes = True
