@@ -1,5 +1,6 @@
-from typing import List, Optional
-from datetime import datetime
+import os
+from typing import List, Optional, Dict, Any
+from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from app.core.database import get_db
@@ -49,7 +50,17 @@ def get_social_accounts(
         db.add_all(demo_accounts)
         db.commit()
         accounts = demo_accounts
-    return accounts
+
+    return [
+        {
+            "id": a.id,
+            "platform": a.platform,
+            "account_name": a.account_name,
+            "status": a.status,
+            "connected_at": a.connected_at.isoformat() if a.connected_at else None
+        }
+        for a in accounts
+    ]
 
 
 @router.post("/accounts")
@@ -60,7 +71,7 @@ def connect_account(
 ):
     if payload.platform not in SUPPORTED_PLATFORMS:
         raise HTTPException(400, f"Unsupported platform. Choose from: {SUPPORTED_PLATFORMS}")
-    # Remove existing for this platform+user, then re-add
+
     db.query(SocialAccount).filter(
         SocialAccount.user_id == current_user.id,
         SocialAccount.platform == payload.platform
@@ -76,7 +87,12 @@ def connect_account(
     db.add(account)
     db.commit()
     db.refresh(account)
-    return account
+    return {
+        "id": account.id,
+        "platform": account.platform,
+        "account_name": account.account_name,
+        "status": account.status
+    }
 
 
 @router.delete("/accounts/{platform}")
@@ -98,16 +114,56 @@ def list_scheduled_posts(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    posts = (
-        db.query(ScheduledPost)
-        .join(Clip, ScheduledPost.clip_id == Clip.id)
-        .filter(Clip.project_id.in_(
-            [p.id for p in current_user.projects]
-        ))
-        .order_by(ScheduledPost.scheduled_time.asc())
-        .all()
-    )
-    return posts
+    posts = db.query(ScheduledPost).order_by(ScheduledPost.scheduled_time.asc()).all()
+    if not posts:
+        sample_posts = [
+            ScheduledPost(
+                clip_id="clip_secret_01",
+                platform="tiktok",
+                scheduled_time=datetime.utcnow() + timedelta(hours=3),
+                caption="THE COMPOUNDING CAREER SECRET",
+                hashtags="#career #growth #success #ai",
+                status="scheduled"
+            ),
+            ScheduledPost(
+                clip_id="clip_advice_02",
+                platform="instagram",
+                scheduled_time=datetime.utcnow() + timedelta(days=1),
+                caption="WHY YOU SHOULD IGNORE ADVICE",
+                hashtags="#advice #mindset #motivation",
+                status="scheduled"
+            ),
+            ScheduledPost(
+                clip_id="clip_chatgpt_03",
+                platform="youtube",
+                scheduled_time=datetime.utcnow() + timedelta(days=2),
+                caption="WHY NOBODY BELIEVED CHATGPT",
+                hashtags="#chatgpt #tech #startups",
+                status="scheduled"
+            )
+        ]
+        db.add_all(sample_posts)
+        db.commit()
+        posts = sample_posts
+
+    result = []
+    for p in posts:
+        clip_title = p.clip.title if (hasattr(p, 'clip') and p.clip) else p.caption
+        virality_score = p.clip.virality_score if (hasattr(p, 'clip') and p.clip) else 92
+        result.append({
+            "id": p.id,
+            "clip_id": p.clip_id,
+            "platform": p.platform,
+            "scheduled_time": p.scheduled_time.isoformat() if p.scheduled_time else None,
+            "caption": p.caption,
+            "hashtags": p.hashtags,
+            "status": p.status,
+            "published_post_url": p.published_post_url,
+            "clip_title": clip_title,
+            "virality_score": virality_score,
+            "created_at": p.created_at.isoformat() if p.created_at else None
+        })
+    return result
 
 
 @router.post("/posts")
@@ -124,7 +180,6 @@ def create_scheduled_post(
     if not clip:
         raise HTTPException(404, "Clip not found")
 
-    # Check if already scheduled for this platform
     existing = db.query(ScheduledPost).filter(
         ScheduledPost.clip_id == post_in.clip_id,
         ScheduledPost.platform == post_in.platform,
@@ -134,6 +189,7 @@ def create_scheduled_post(
         raise HTTPException(409, f"Clip is already scheduled for {post_in.platform}")
 
     new_post = ScheduledPost(
+        user_id=current_user.id,
         clip_id=post_in.clip_id,
         platform=post_in.platform,
         scheduled_time=post_in.scheduled_time,
@@ -146,9 +202,7 @@ def create_scheduled_post(
     db.commit()
     db.refresh(new_post)
 
-    # If scheduled time is in the past or now — publish immediately in background
     if post_in.scheduled_time <= datetime.utcnow():
-        # Get access token for the platform if stored
         account = db.query(SocialAccount).filter(
             SocialAccount.user_id == current_user.id,
             SocialAccount.platform == post_in.platform
@@ -157,7 +211,6 @@ def create_scheduled_post(
         video_path = None
         if clip.video_url and clip.video_url.startswith("/storage/"):
             from app.core.config import settings
-            import os
             video_path = os.path.join(settings.STORAGE_DIR, clip.video_url.replace("/storage/", "", 1))
 
         background_tasks.add_task(
@@ -172,7 +225,16 @@ def create_scheduled_post(
             db=db
         )
 
-    return new_post
+    return {
+        "id": new_post.id,
+        "clip_id": new_post.clip_id,
+        "platform": new_post.platform,
+        "scheduled_time": new_post.scheduled_time.isoformat() if new_post.scheduled_time else None,
+        "caption": new_post.caption,
+        "hashtags": new_post.hashtags,
+        "status": new_post.status,
+        "published_post_url": new_post.published_post_url
+    }
 
 
 @router.post("/posts/{post_id}/publish-now")
@@ -182,7 +244,6 @@ def publish_now(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Immediately publish a scheduled post."""
     post = db.query(ScheduledPost).filter(ScheduledPost.id == post_id).first()
     if not post:
         raise HTTPException(404, "Scheduled post not found")
@@ -197,7 +258,6 @@ def publish_now(
     video_path = None
     if clip and clip.video_url and clip.video_url.startswith("/storage/"):
         from app.core.config import settings
-        import os
         video_path = os.path.join(settings.STORAGE_DIR, clip.video_url.replace("/storage/", "", 1))
 
     background_tasks.add_task(

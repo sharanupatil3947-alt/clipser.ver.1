@@ -1,7 +1,7 @@
 @echo off
 echo Starting Clipser Platform...
-start cmd /k "cd backend && uvicorn app.main:app --reload --port 8000"
-start cmd /k "cd frontend && npm run dev"
+start "Clipser Backend API" cmd /k "cd backend && python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload"
+start "Clipser Frontend UI" cmd /k "cd frontend && npm run dev"
 echo Clipser is launching!
-echo Backend: http://localhost:8000/docs
-echo Frontend: http://localhost:3000
+echo Backend Docs: http://localhost:8000/docs
+echo Frontend App:  http://localhost:3000
