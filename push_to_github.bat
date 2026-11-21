@@ -2,7 +2,7 @@
 title Pushing Clipser to GitHub
 cd /d "C:\Users\Dell\Downloads\scalereach.ai"
 echo ===================================================
-echo   Pushing Clipser to https://github.com/sharanupatil3947-alt/clipser
+echo   Pushing Clipser to https://github.com/sharanupatil3947-alt/clipser.ver.1
 echo ===================================================
 echo.
 git push -u origin main

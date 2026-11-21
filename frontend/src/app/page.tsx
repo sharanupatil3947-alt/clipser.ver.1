@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
 import Link from "next/link";
-import { Sparkles, ArrowRight, Video, Scissors, Wand2, Calendar, Share2, Database, ShieldCheck, CheckCircle2 } from "lucide-react";
+import { Sparkles, ArrowRight, Video, Scissors, Wand2, Calendar, Share2, ShieldCheck, CheckCircle2 } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 
 export default function HomePage() {
@@ -25,7 +25,7 @@ export default function HomePage() {
           </h1>
 
           <p className="max-w-2xl mx-auto text-base sm:text-lg text-gray-400 leading-relaxed">
-            AI-powered transcription, smart face-tracking 16:9 to 9:16 reframing, animated karaoke captions, virality scoring, multi-platform social scheduling, and seamless CRM integrations.
+            AI-powered transcription, smart face-tracking 16:9 to 9:16 reframing, animated karaoke captions, virality scoring, multi-platform social scheduling, and custom brand kits.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
@@ -38,11 +38,11 @@ export default function HomePage() {
             </Link>
 
             <Link
-              href="/dashboard/crm"
+              href="/dashboard/schedule"
               className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-[#14141c] hover:bg-[#1a1a24] border border-gray-800 text-gray-300 hover:text-white font-semibold text-sm transition-all"
             >
-              <Database className="w-4 h-4 text-indigo-400" />
-              <span>CRM Integrations</span>
+              <Calendar className="w-4 h-4 text-indigo-400" />
+              <span>Social Scheduler</span>
             </Link>
           </div>
 

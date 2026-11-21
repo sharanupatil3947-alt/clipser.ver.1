@@ -7,7 +7,7 @@ import { useAuth } from "@/lib/authContext";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { login, loginWithGoogle } = useAuth();
+  const { register, loginWithGoogle } = useAuth();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -16,7 +16,7 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    await login(email, password);
+    await register(name, email, password);
     setLoading(false);
     router.push("/dashboard");
   };

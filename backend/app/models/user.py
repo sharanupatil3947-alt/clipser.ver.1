@@ -20,4 +20,4 @@ class User(Base):
 
     projects = relationship("Project", back_populates="owner", cascade="all, delete-orphan")
     social_accounts = relationship("SocialAccount", back_populates="user", cascade="all, delete-orphan")
-    crm_integrations = relationship("CRMIntegration", back_populates="user", cascade="all, delete-orphan")
+    scheduled_posts = relationship("ScheduledPost", back_populates="user", cascade="all, delete-orphan")

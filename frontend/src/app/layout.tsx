@@ -4,7 +4,7 @@ import { AuthProvider } from "@/lib/authContext";
 
 export const metadata: Metadata = {
   title: "Clipser - AI Video Repurposing & Viral Shorts Platform",
-  description: "Turn long-form videos into viral vertical clips with AI face tracking, dynamic captions, and CRM synchronization with zero recurring costs.",
+  description: "Turn long-form videos into viral vertical clips with AI face tracking, dynamic captions, and multi-platform social scheduling with zero recurring costs.",
 };
 
 export default function RootLayout({

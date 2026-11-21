@@ -1,90 +1,166 @@
 import os
 import json
 import logging
-from typing import Dict, Any, List
+import subprocess
+import tempfile
+from pathlib import Path
+from typing import Dict, Any, List, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class TranscriptionService:
+    """
+    Real transcription using OpenAI Whisper.
+    Falls back to faster-whisper if available, then to openai-whisper,
+    then to ffmpeg-based silence detection as last resort.
+    """
+
     def __init__(self):
-        pass
+        self._model = None
+        self._backend = None
+
+    def _load_model(self):
+        if self._model is not None:
+            return
+
+        # Try faster-whisper first (CTranslate2 optimised)
+        try:
+            from faster_whisper import WhisperModel
+            self._model = WhisperModel("base", device="auto", compute_type="auto")
+            self._backend = "faster_whisper"
+            logger.info("Transcription backend: faster-whisper (CTranslate2)")
+            return
+        except Exception as e:
+            logger.debug(f"faster-whisper not available: {e}")
+
+        # Try openai-whisper
+        try:
+            import whisper
+            self._model = whisper.load_model("base")
+            self._backend = "openai_whisper"
+            logger.info("Transcription backend: openai-whisper")
+            return
+        except Exception as e:
+            logger.debug(f"openai-whisper not available: {e}")
+
+        # Fallback: use ffmpeg silence detection
+        self._backend = "fallback"
+        logger.warning("No Whisper model available. Using FFmpeg silence-based segmentation.")
+
+    def _extract_audio(self, video_path: str) -> str:
+        """Extract audio to a temp WAV file for Whisper."""
+        tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+        tmp.close()
+        try:
+            subprocess.run(
+                ["ffmpeg", "-y", "-i", video_path, "-vn", "-acodec", "pcm_s16le",
+                 "-ar", "16000", "-ac", "1", tmp.name],
+                capture_output=True, timeout=300
+            )
+        except Exception as e:
+            logger.error(f"Audio extraction failed: {e}")
+        return tmp.name
 
     def transcribe(self, video_path: str, title: str = "") -> Dict[str, Any]:
         """
-        Extracts speech and produces high-accuracy word-level timestamps.
-        Has robust fallback to generative transcript generator if local Whisper model isn't downloaded.
+        Returns: {"language": str, "segments": [{"start": float, "end": float, "text": str, "words": [...]}]}
         """
-        logger.info(f"Transcribing video: {video_path}")
-        
-        # In case faster_whisper is available
+        logger.info(f"Transcribing: {video_path}")
+        self._load_model()
+
+        if not video_path or not os.path.isfile(video_path):
+            logger.warning(f"Video file not found: {video_path}. Returning empty transcript.")
+            return {"language": "en", "segments": []}
+
+        audio_path = self._extract_audio(video_path)
+
         try:
-            from faster_whisper import WhisperModel
-            model = WhisperModel("base", device="cpu", compute_type="int8")
-            segments, info = model.transcribe(video_path, word_timestamps=True)
-            results = []
-            for seg in segments:
-                words = []
-                if seg.words:
-                    for w in seg.words:
-                        words.append({
-                            "word": w.word.strip(),
-                            "start": round(w.start, 2),
-                            "end": round(w.end, 2)
-                        })
-                results.append({
-                    "start": round(seg.start, 2),
-                    "end": round(seg.end, 2),
-                    "text": seg.text.strip(),
-                    "words": words
-                })
-            return {"language": info.language, "segments": results}
+            if self._backend == "faster_whisper":
+                return self._transcribe_faster_whisper(audio_path)
+            elif self._backend == "openai_whisper":
+                return self._transcribe_openai_whisper(audio_path)
+            else:
+                return self._transcribe_fallback(video_path)
+        finally:
+            try:
+                os.unlink(audio_path)
+            except Exception:
+                pass
+
+    def _transcribe_faster_whisper(self, audio_path: str) -> Dict[str, Any]:
+        segments_iter, info = self._model.transcribe(audio_path, word_timestamps=True)
+        segments = []
+        for seg in segments_iter:
+            words = []
+            if seg.words:
+                for w in seg.words:
+                    words.append({"word": w.word.strip(), "start": round(w.start, 3), "end": round(w.end, 3)})
+            segments.append({
+                "start": round(seg.start, 3),
+                "end": round(seg.end, 3),
+                "text": seg.text.strip(),
+                "words": words
+            })
+        return {"language": info.language, "segments": segments}
+
+    def _transcribe_openai_whisper(self, audio_path: str) -> Dict[str, Any]:
+        result = self._model.transcribe(audio_path, word_timestamps=True)
+        segments = []
+        for seg in result.get("segments", []):
+            words = []
+            for w in seg.get("words", []):
+                words.append({"word": w["word"].strip(), "start": round(w["start"], 3), "end": round(w["end"], 3)})
+            segments.append({
+                "start": round(seg["start"], 3),
+                "end": round(seg["end"], 3),
+                "text": seg["text"].strip(),
+                "words": words
+            })
+        return {"language": result.get("language", "en"), "segments": segments}
+
+    def _transcribe_fallback(self, video_path: str) -> Dict[str, Any]:
+        """Use FFmpeg silence detection to find speech segments."""
+        try:
+            result = subprocess.run(
+                ["ffmpeg", "-i", video_path, "-af",
+                 "silencedetect=noise=-30dB:d=0.5", "-f", "null", "-"],
+                capture_output=True, text=True, timeout=300
+            )
+            lines = result.stderr
+            silence_starts = []
+            silence_ends = []
+            for line in lines.splitlines():
+                if "silence_start:" in line:
+                    try:
+                        ts = float(line.split("silence_start:")[1].strip().split()[0])
+                        silence_starts.append(ts)
+                    except Exception:
+                        pass
+                if "silence_end:" in line:
+                    try:
+                        ts = float(line.split("silence_end:")[1].strip().split()[0])
+                        silence_ends.append(ts)
+                    except Exception:
+                        pass
+
+            segments = []
+            prev_end = 0.0
+            for i, ss in enumerate(silence_starts):
+                if ss - prev_end > 0.5:
+                    segments.append({
+                        "start": round(prev_end, 3),
+                        "end": round(ss, 3),
+                        "text": f"[Speech segment {len(segments) + 1}]",
+                        "words": []
+                    })
+                if i < len(silence_ends):
+                    prev_end = silence_ends[i]
+
+            return {"language": "en", "segments": segments}
         except Exception as e:
-            logger.warning(f"Whisper local engine offline or model not loaded ({e}), using intelligent high-fidelity transcript synthesizer for {title}")
-            
-        # High fidelity synthesized transcript with word-by-word timing for viral moments
-        return {
-            "language": "en",
-            "segments": [
-                {
-                    "start": 12.0,
-                    "end": 45.0,
-                    "text": "The single most compounding secret in your entire career is focusing on high leverage skills that cannot be easily replicated.",
-                    "words": [
-                        {"word": "The", "start": 12.0, "end": 12.3},
-                        {"word": "single", "start": 12.4, "end": 12.8},
-                        {"word": "most", "start": 12.9, "end": 13.2},
-                        {"word": "compounding", "start": 13.3, "end": 13.9},
-                        {"word": "secret", "start": 14.0, "end": 14.4},
-                        {"word": "in", "start": 14.5, "end": 14.7},
-                        {"word": "your", "start": 14.8, "end": 15.0},
-                        {"word": "career...", "start": 15.1, "end": 15.8}
-                    ]
-                },
-                {
-                    "start": 95.0,
-                    "end": 138.0,
-                    "text": "When people give you conventional advice, remember that conventional advice only leads to conventional outcomes.",
-                    "words": [
-                        {"word": "When", "start": 95.0, "end": 95.3},
-                        {"word": "people", "start": 95.4, "end": 95.8},
-                        {"word": "give", "start": 95.9, "end": 96.2},
-                        {"word": "you", "start": 96.3, "end": 96.5},
-                        {"word": "advice...", "start": 96.6, "end": 97.2}
-                    ]
-                },
-                {
-                    "start": 210.0,
-                    "end": 252.0,
-                    "text": "When we launched the prototype, literally nobody believed it would work. But exponential curves always look flat until the vertical inflection.",
-                    "words": [
-                        {"word": "When", "start": 210.0, "end": 210.4},
-                        {"word": "nobody", "start": 210.5, "end": 211.0},
-                        {"word": "believed", "start": 211.1, "end": 211.7},
-                        {"word": "in", "start": 211.8, "end": 212.0},
-                        {"word": "ChatGPT...", "start": 212.1, "end": 212.8}
-                    ]
-                }
-            ]
-        }
+            logger.error(f"Fallback transcription failed: {e}")
+            return {"language": "en", "segments": []}
+
 
 transcription_service = TranscriptionService()

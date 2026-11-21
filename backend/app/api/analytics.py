@@ -1,31 +1,59 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.models.project import Project
+from app.models.clip import Clip
+from app.models.social import ScheduledPost, SocialAccount
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
+
 @router.get("/overview")
-def get_analytics_overview(db: Session = Depends(get_db)):
+def get_analytics_overview(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    """Dynamic analytics from real database rows."""
+    user_id = current_user.id
+
+    # Real counts
+    total_projects = db.query(func.count(Project.id)).filter(Project.user_id == user_id).scalar() or 0
+    total_clips = db.query(func.count(Clip.id)).join(Project).filter(Project.user_id == user_id).scalar() or 0
+    avg_virality = db.query(func.avg(Clip.virality_score)).join(Project).filter(Project.user_id == user_id).scalar()
+    avg_virality = round(float(avg_virality), 1) if avg_virality else 0.0
+
+    total_scheduled = db.query(func.count(ScheduledPost.id)).scalar() or 0
+    published = db.query(func.count(ScheduledPost.id)).filter(
+        ScheduledPost.status.in_(["published", "simulated_published"])
+    ).scalar() or 0
+
+    # Platform breakdown from scheduled posts
+    platform_rows = db.query(
+        ScheduledPost.platform,
+        func.count(ScheduledPost.id).label("count")
+    ).filter(
+        ScheduledPost.status.in_(["published", "simulated_published", "scheduled"])
+    ).group_by(ScheduledPost.platform).all()
+
+    platform_breakdown = {}
+    for row in platform_rows:
+        platform_breakdown[row.platform] = {
+            "posts": row.count,
+            "status": "active"
+        }
+
+    # If no real data yet, provide informative zeros (not fake numbers)
     return {
-        "total_views": 4280500,
-        "views_growth": "+34.8%",
-        "avg_virality_score": 92.4,
-        "avg_retention_rate": "88.6%",
-        "total_clips_generated": 142,
-        "total_hours_saved": 86.5,
-        "platform_breakdown": {
-            "tiktok": {"views": 1850000, "shares": 92000, "engagement": "9.4%"},
-            "instagram_reels": {"views": 1420000, "shares": 64000, "engagement": "8.7%"},
-            "youtube_shorts": {"views": 1010500, "shares": 48000, "engagement": "11.2%"}
-        },
-        "recent_performance_curve": [
-            {"day": "Mon", "views": 420000},
-            {"day": "Tue", "views": 580000},
-            {"day": "Wed", "views": 720000},
-            {"day": "Thu", "views": 690000},
-            {"day": "Fri", "views": 850000},
-            {"day": "Sat", "views": 980000},
-            {"day": "Sun", "views": 1040500}
-        ]
+        "total_projects": total_projects,
+        "total_clips_generated": total_clips,
+        "avg_virality_score": avg_virality,
+        "total_scheduled_posts": total_scheduled,
+        "total_published_posts": published,
+        "platform_breakdown": platform_breakdown,
+        "connected_platforms": len(
+            db.query(SocialAccount).filter(SocialAccount.user_id == user_id).all()
+        ),
+        "note": "All metrics are real-time from your Clipser database."
     }
